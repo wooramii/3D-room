@@ -355,6 +355,27 @@
       line-height: 1.45;
     }
 
+    .zoom-controls {
+      display: inline-grid;
+      grid-template-columns: 38px 58px 38px;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .zoom-controls button {
+      min-width: 38px;
+      padding: 0;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .zoom-value {
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+
     .scene {
       position: relative;
       width: var(--room-w, 720px);
@@ -675,8 +696,13 @@
       </div>
       <div class="viewer3d" id="viewer3d" aria-label="3D 방 보기">
         <div class="view-controls" aria-label="3D 보기 제어">
-          <div class="view-help">드래그: 회전 · Shift/오른쪽 드래그: 이동 · 마우스 휠: 확대·축소</div>
+          <div class="view-help">한 손가락: 회전 · 두 손가락: 이동·확대 · PC Shift/오른쪽 드래그: 이동</div>
           <div class="actions">
+            <div class="zoom-controls" aria-label="화면 확대·축소">
+              <button id="zoomOut" type="button" title="축소" aria-label="축소">−</button>
+              <span class="zoom-value" id="zoomValue" aria-live="polite">100%</span>
+              <button id="zoomIn" type="button" title="확대" aria-label="확대">+</button>
+            </div>
             <button id="resetView">보기 초기화</button>
           </div>
         </div>
@@ -815,6 +841,7 @@
       document.documentElement.style.setProperty("--view-zoom", state.view.zoom);
       document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
       document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
+      $("zoomValue").textContent = `${Math.round(state.view.zoom * 100)}%`;
       $("roomMeta").textContent = `${state.room.width} x ${state.room.depth} x ${state.room.height} mm${overlapCount ? " · 겹침 " + overlapCount + "건" : ""}${state.status ? " · " + state.status : ""}`;
 
       render2d();
@@ -1266,9 +1293,18 @@
       render();
     });
 
-    $("viewer3d").addEventListener("pointerdown", startViewDrag);
+    const viewPointers = new Map();
+    let viewGesture = null;
+    const viewer3d = $("viewer3d");
+
+    viewer3d.addEventListener("pointerdown", startViewGesture);
+    viewer3d.addEventListener("pointermove", moveViewGesture);
+    viewer3d.addEventListener("pointerup", endViewGesture);
+    viewer3d.addEventListener("pointercancel", endViewGesture);
     $("viewer3d").addEventListener("contextmenu", (event) => event.preventDefault());
     $("viewer3d").addEventListener("wheel", zoomView, { passive: false });
+    $("zoomOut").addEventListener("click", () => setViewZoom(state.view.zoom / 1.2));
+    $("zoomIn").addEventListener("click", () => setViewZoom(state.view.zoom * 1.2));
 
     function startDrag(event) {
       const id = event.currentTarget.dataset.id;
@@ -1299,42 +1335,91 @@
       window.addEventListener("pointerup", end);
     }
 
-    function startViewDrag(event) {
+    function startViewGesture(event) {
       if (state.mode !== "3d") return;
       if (event.target.closest(".view-controls")) return;
-      const viewer = $("viewer3d");
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const originX = state.view.x;
-      const originZ = state.view.z;
-      const originPanX = state.view.panX;
-      const originPanY = state.view.panY;
-      const isPan = event.button === 2 || event.button === 1 || event.shiftKey;
-      viewer.classList.add("dragging");
-      viewer.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      viewPointers.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType });
+      viewer3d.classList.add("dragging");
+      viewer3d.setPointerCapture(event.pointerId);
+      beginViewGesture(event);
+    }
 
-      const move = (moveEvent) => {
-        if (isPan) {
-          state.view.panX = originPanX + moveEvent.clientX - startX;
-          state.view.panY = originPanY + moveEvent.clientY - startY;
-          document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
-          document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
-        } else {
-          state.view.z = originZ + (moveEvent.clientX - startX) * 0.35;
-          state.view.x = Math.min(82, Math.max(18, originX - (moveEvent.clientY - startY) * 0.25));
-          document.documentElement.style.setProperty("--view-x", `${state.view.x}deg`);
-          document.documentElement.style.setProperty("--view-z", `${state.view.z}deg`);
+    function beginViewGesture(event = {}) {
+      const points = [...viewPointers.values()];
+      if (points.length >= 2) {
+        const [a, b] = points;
+        const centerX = (a.x + b.x) / 2;
+        const centerY = (a.y + b.y) / 2;
+        viewGesture = {
+          mode: "pinch",
+          centerX,
+          centerY,
+          distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+          panX: state.view.panX,
+          panY: state.view.panY,
+          zoom: state.view.zoom
+        };
+        return;
+      }
+      if (points.length === 1) {
+        const point = points[0];
+        const mousePan = point.type === "mouse" && (event.button === 2 || event.button === 1 || event.shiftKey);
+        viewGesture = {
+          mode: mousePan ? "pan" : "rotate",
+          x: point.x,
+          y: point.y,
+          viewX: state.view.x,
+          viewZ: state.view.z,
+          panX: state.view.panX,
+          panY: state.view.panY
+        };
+      }
+    }
+
+    function moveViewGesture(event) {
+      if (!viewPointers.has(event.pointerId) || !viewGesture) return;
+      event.preventDefault();
+      viewPointers.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType });
+      const points = [...viewPointers.values()];
+      if (points.length >= 2 && viewGesture.mode === "pinch") {
+        const [a, b] = points;
+        const centerX = (a.x + b.x) / 2;
+        const centerY = (a.y + b.y) / 2;
+        const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+        const nextZoom = Math.min(2.5, Math.max(0.35, viewGesture.zoom * distance / viewGesture.distance));
+        const ratio = nextZoom / viewGesture.zoom;
+        const rect = viewer3d.getBoundingClientRect();
+        const startX = viewGesture.centerX - rect.left - rect.width / 2;
+        const startY = viewGesture.centerY - rect.top - rect.height / 2;
+        const currentX = centerX - rect.left - rect.width / 2;
+        const currentY = centerY - rect.top - rect.height / 2;
+        state.view.panX = currentX - (startX - viewGesture.panX) * ratio;
+        state.view.panY = currentY - (startY - viewGesture.panY) * ratio;
+        state.view.zoom = nextZoom;
+        applyViewTransform();
+      } else if (points.length === 1) {
+        const point = points[0];
+        if (viewGesture.mode === "pan") {
+          state.view.panX = viewGesture.panX + point.x - viewGesture.x;
+          state.view.panY = viewGesture.panY + point.y - viewGesture.y;
+        } else if (viewGesture.mode === "rotate") {
+          state.view.z = viewGesture.viewZ + (point.x - viewGesture.x) * 0.35;
+          state.view.x = Math.min(82, Math.max(18, viewGesture.viewX - (point.y - viewGesture.y) * 0.25));
         }
-      };
+        applyViewTransform();
+      }
+    }
 
-      const end = () => {
-        viewer.classList.remove("dragging");
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", end);
-      };
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", end);
+    function endViewGesture(event) {
+      if (!viewPointers.has(event.pointerId)) return;
+      viewPointers.delete(event.pointerId);
+      if (!viewPointers.size) {
+        viewGesture = null;
+        viewer3d.classList.remove("dragging");
+        return;
+      }
+      beginViewGesture({});
     }
 
     function zoomView(event) {
@@ -1343,15 +1428,27 @@
       const viewerRect = $("viewer3d").getBoundingClientRect();
       const cursorX = event.clientX - viewerRect.left - viewerRect.width / 2;
       const cursorY = event.clientY - viewerRect.top - viewerRect.height / 2;
+      const nextZoom = state.view.zoom * Math.exp(-event.deltaY * 0.0015);
+      setViewZoom(nextZoom, cursorX, cursorY);
+    }
+
+    function setViewZoom(nextZoom, anchorX = 0, anchorY = 0) {
       const previousZoom = state.view.zoom;
-      const nextZoom = Math.min(2.5, Math.max(0.35, previousZoom * Math.exp(-event.deltaY * 0.0015)));
+      nextZoom = Math.min(2.5, Math.max(0.35, nextZoom));
       const ratio = nextZoom / previousZoom;
-      state.view.panX = cursorX - (cursorX - state.view.panX) * ratio;
-      state.view.panY = cursorY - (cursorY - state.view.panY) * ratio;
+      state.view.panX = anchorX - (anchorX - state.view.panX) * ratio;
+      state.view.panY = anchorY - (anchorY - state.view.panY) * ratio;
       state.view.zoom = nextZoom;
+      applyViewTransform();
+    }
+
+    function applyViewTransform() {
       document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
       document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
       document.documentElement.style.setProperty("--view-zoom", state.view.zoom);
+      document.documentElement.style.setProperty("--view-x", `${state.view.x}deg`);
+      document.documentElement.style.setProperty("--view-z", `${state.view.z}deg`);
+      $("zoomValue").textContent = `${Math.round(state.view.zoom * 100)}%`;
     }
 
     window.addEventListener("resize", setScaleToFit);
