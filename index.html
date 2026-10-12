@@ -526,6 +526,20 @@
           <label>높이 mm (수치) <input id="fHeight" type="number" min="10" step="10" value="900"></label>
         <label>고도 mm <input id="fZ" type="number" min="0" step="10" value="0"></label>
         <label>색상 <input id="fColor" type="color" value="#8fb6a8"></label>
+        <label>3D 모델
+          <select id="fModel">
+            <option value="box">기본 박스</option>
+            <option value="chair">의자 (GLB)</option>
+            <option value="sofa">소파 (GLB)</option>
+            <option value="pouf">푸프 (GLB)</option>
+          </select>
+        </label>
+        <label>모델 색상
+          <select id="fFinish">
+            <option value="tint">선택 색상 적용</option>
+            <option value="original">원본 재질 유지</option>
+          </select>
+        </label>
       </div>
       <div class="actions">
         <button class="accent" id="addFurniture">가구 추가</button>
@@ -603,6 +617,20 @@
           <label>높이 mm (수치) <input id="eHeight" type="number" min="10" step="10"></label>
           <label>고도 mm <input id="eZ" type="number" min="0" step="10"></label>
           <label>색상 <input id="eColor" type="color"></label>
+          <label>3D 모델
+            <select id="eModel">
+              <option value="box">기본 박스</option>
+              <option value="chair">의자 (GLB)</option>
+              <option value="sofa">소파 (GLB)</option>
+              <option value="pouf">푸프 (GLB)</option>
+            </select>
+          </label>
+          <label>모델 색상
+            <select id="eFinish">
+              <option value="tint">선택 색상 적용</option>
+              <option value="original">원본 재질 유지</option>
+            </select>
+          </label>
         </div>
         <div class="actions">
           <button class="primary" id="updateFurniture">수정 적용</button>
@@ -667,6 +695,20 @@
     };
 
     const storageKey = "room-grid-studio-plan";
+    const furnitureModels = {
+      chair: {
+        name: "의자",
+        url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenChair/glTF-Binary/SheenChair.glb"
+      },
+      sofa: {
+        name: "소파",
+        url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenWoodLeatherSofa/glTF-Binary/SheenWoodLeatherSofa.glb"
+      },
+      pouf: {
+        name: "푸프",
+        url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SpecularSilkPouf/glTF-Binary/SpecularSilkPouf.glb"
+      }
+    };
     let threeApp = null;
     const $ = (id) => document.getElementById(id);
     const snap = (value) => Math.round(value / 10) * 10;
@@ -679,6 +721,9 @@
       item.z = Math.min(Math.max(0, snap(item.z || 0)), Math.max(0, state.room.height - item.height));
       item.x = Math.min(Math.max(0, snap(item.x)), Math.max(0, state.room.width - item.width));
       item.y = Math.min(Math.max(0, snap(item.y)), Math.max(0, state.room.depth - item.depth));
+      item.model = furnitureModels[item.model] ? item.model : "box";
+      item.finish = item.finish === "original" ? "original" : "tint";
+      item.rotation = [0, 90, 180, 270].includes(item.rotation) ? item.rotation : 0;
       return item;
     }
 
@@ -822,7 +867,8 @@
         const content = document.createElement("span");
         content.append(document.createTextNode(`${item.name}${hasOverlap(item) ? " · 겹침" : ""}`), document.createElement("br"));
         const detail = document.createElement("small");
-        detail.textContent = `${item.width} x ${item.depth} x ${item.height} mm · 고도 ${item.z || 0} mm`;
+        const modelName = furnitureModels[item.model]?.name || "기본 박스";
+        detail.textContent = `${item.width} x ${item.depth} x ${item.height} mm · 고도 ${item.z || 0} mm · ${modelName}`;
         content.appendChild(detail);
         row.append(swatch, content);
         row.addEventListener("click", () => selectItem(item.id));
@@ -843,6 +889,8 @@
       $("eHeight").value = item.height;
       $("eZ").value = item.z || 0;
       $("eColor").value = item.color;
+      $("eModel").value = item.model || "box";
+      $("eFinish").value = item.finish || "tint";
     }
 
     function renderDoorList() {
@@ -952,7 +1000,8 @@
       try {
         const THREE = await import("three");
         const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
-        threeApp = createThreeApp(THREE, OrbitControls);
+        const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
+        threeApp = createThreeApp(THREE, OrbitControls, GLTFLoader);
         $("threeStatus").classList.add("hidden");
         threeApp.rebuild();
         threeApp.restoreView(state.view);
@@ -963,7 +1012,7 @@
       }
     }
 
-    function createThreeApp(THREE, OrbitControls) {
+    function createThreeApp(THREE, OrbitControls, GLTFLoader) {
       const canvas = $("threeCanvas");
       const viewer = $("viewer3d");
       const scene = new THREE.Scene();
@@ -975,7 +1024,7 @@
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
 
       const controls = new OrbitControls(camera, canvas);
       controls.enableDamping = true;
@@ -999,8 +1048,12 @@
 
       const roomRoot = new THREE.Group();
       scene.add(roomRoot);
+      const gltfLoader = new GLTFLoader();
+      const modelCache = new Map();
       let dirty = true;
       let baseDistance = 1;
+      let buildVersion = 0;
+      let pendingModels = 0;
 
       function material(color, roughness = 0.78) {
         return new THREE.MeshStandardMaterial({ color, roughness, metalness: 0.03 });
@@ -1111,7 +1164,7 @@
         return sprite;
       }
 
-      function addFurniture(item) {
+      function addFurnitureBox(item) {
         const mesh = addBox(
           item.width,
           item.height,
@@ -1122,15 +1175,99 @@
           item.color,
           { roughness: 0.7 }
         );
-        if (!mesh) return;
+        if (!mesh) return null;
         const edges = new THREE.LineSegments(
           new THREE.EdgesGeometry(mesh.geometry),
           new THREE.LineBasicMaterial({ color: 0x34413f, transparent: true, opacity: 0.7 })
         );
         mesh.add(edges);
+        return mesh;
+      }
+
+      function addFurnitureLabel(item) {
         const label = makeLabel(item.name, item.width);
         label.position.set(item.x + item.width / 2, (item.z || 0) + item.height + 120, item.y + item.depth / 2);
         roomRoot.add(label);
+      }
+
+      function loadModel(modelKey) {
+        if (!modelCache.has(modelKey)) {
+          const promise = gltfLoader.loadAsync(furnitureModels[modelKey].url)
+            .then((gltf) => gltf.scene)
+            .catch((error) => {
+              modelCache.delete(modelKey);
+              throw error;
+            });
+          modelCache.set(modelKey, promise);
+        }
+        return modelCache.get(modelKey);
+      }
+
+      function cloneModel(template, item) {
+        const model = template.clone(true);
+        model.traverse((child) => {
+          if (!child.isMesh) return;
+          child.geometry = child.geometry.clone();
+          const source = Array.isArray(child.material) ? child.material : [child.material];
+          const cloned = source.map((entry) => {
+            const next = entry.clone();
+            next.userData.sharedModelMaps = true;
+            if (item.finish === "tint" && next.color) next.color.set(item.color);
+            return next;
+          });
+          child.material = Array.isArray(child.material) ? cloned : cloned[0];
+          child.castShadow = true;
+          child.receiveShadow = true;
+        });
+        return model;
+      }
+
+      function fitModelToFurniture(template, item) {
+        const model = cloneModel(template, item);
+        const sourceBounds = new THREE.Box3().setFromObject(model);
+        const size = sourceBounds.getSize(new THREE.Vector3());
+        const center = sourceBounds.getCenter(new THREE.Vector3());
+        if (size.x <= 0 || size.y <= 0 || size.z <= 0) throw new Error("GLB model has no measurable volume");
+
+        model.position.set(-center.x, -sourceBounds.min.y, -center.z);
+        const fitted = new THREE.Group();
+        fitted.add(model);
+        const quarterTurn = item.rotation % 180 !== 0;
+        fitted.scale.set(
+          (quarterTurn ? item.depth : item.width) / size.x,
+          item.height / size.y,
+          (quarterTurn ? item.width : item.depth) / size.z
+        );
+        fitted.rotation.y = THREE.MathUtils.degToRad(item.rotation || 0);
+        fitted.position.set(item.x + item.width / 2, item.z || 0, item.y + item.depth / 2);
+        roomRoot.add(fitted);
+      }
+
+      async function addFurniture(item, version) {
+        addFurnitureLabel(item);
+        if (!furnitureModels[item.model]) {
+          addFurnitureBox(item);
+          return;
+        }
+
+        pendingModels += 1;
+        $("threeStatus").textContent = "GLB 가구 모델을 불러오는 중입니다.";
+        $("threeStatus").classList.remove("hidden");
+        try {
+          const template = await loadModel(item.model);
+          if (version !== buildVersion) return;
+          fitModelToFurniture(template, item);
+        } catch (error) {
+          if (version !== buildVersion) return;
+          addFurnitureBox(item);
+          state.status = `${item.name} GLB 로딩 실패 · 박스로 표시`;
+          console.error("GLB furniture load failed", error);
+        } finally {
+          if (version === buildVersion) {
+            pendingModels = Math.max(0, pendingModels - 1);
+            if (pendingModels === 0) $("threeStatus").classList.add("hidden");
+          }
+        }
       }
 
       function disposeObject(object) {
@@ -1138,7 +1275,7 @@
           child.geometry?.dispose();
           const materials = Array.isArray(child.material) ? child.material : [child.material];
           materials.filter(Boolean).forEach((entry) => {
-            entry.map?.dispose();
+            if (!entry.userData.sharedModelMaps) entry.map?.dispose();
             entry.dispose();
           });
         });
@@ -1146,13 +1283,16 @@
 
       function rebuild() {
         if (!dirty) return;
+        buildVersion += 1;
+        pendingModels = 0;
+        const version = buildVersion;
         roomRoot.children.forEach(disposeObject);
         roomRoot.clear();
         addBox(state.room.width, 20, state.room.depth, state.room.width / 2, -10, state.room.depth / 2, 0xf8f6ef, { castShadow: false });
         addGrid();
         addWall("back");
         addWall("left");
-        state.items.forEach(addFurniture);
+        state.items.forEach((item) => addFurniture(item, version));
         const span = Math.max(state.room.width, state.room.depth, state.room.height);
         controls.minDistance = Math.max(250, span * 0.12);
         controls.maxDistance = span * 5;
@@ -1263,6 +1403,9 @@
         height: Math.min(readNumber("fHeight", 900), state.room.height),
         z: readNumber("fZ", 0),
         color: $("fColor").value,
+        model: $("fModel").value,
+        finish: $("fFinish").value,
+        rotation: 0,
         x: 0,
         y: 0
       });
@@ -1308,6 +1451,8 @@
       item.height = Math.min(readNumber("eHeight", item.height), state.room.height);
       item.z = readNumber("eZ", item.z || 0);
       item.color = $("eColor").value;
+      item.model = $("eModel").value;
+      item.finish = $("eFinish").value;
       clampItem(item);
       state.status = hasOverlap(item) ? "겹침 감지" : "";
       render();
@@ -1319,6 +1464,7 @@
       const nextWidth = item.depth;
       item.depth = item.width;
       item.width = nextWidth;
+      item.rotation = ((item.rotation || 0) + 90) % 360;
       clampItem(item);
       state.status = hasOverlap(item) ? "겹침 감지" : "90도 회전";
       render();
