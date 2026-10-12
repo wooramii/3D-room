@@ -1,0 +1,1361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Room Grid Studio</title>
+  <style>
+    :root {
+      --ink: #1f2527;
+      --muted: #687174;
+      --paper: #f6f3ec;
+      --panel: #fffdf8;
+      --line: #d8d0c0;
+      --strong: #315c5a;
+      --strong-2: #d96f4c;
+      --danger: #b43d31;
+      --shadow: 0 18px 42px rgba(31, 37, 39, .12);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffaf1;
+      color: var(--ink);
+      min-height: 36px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: var(--strong); }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(49, 92, 90, .28); outline-offset: 2px; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr) 300px;
+      min-height: 100vh;
+    }
+
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .side-right {
+      border-right: 0;
+      border-left: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: 22px;
+      line-height: 1.05;
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 15px;
+      margin: 24px 0 10px;
+    }
+
+    .badge {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 9px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input[type="number"], input[type="text"], select {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 9px;
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 3px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .primary {
+      background: var(--strong);
+      color: white;
+      border-color: var(--strong);
+    }
+
+    .accent {
+      background: var(--strong-2);
+      color: white;
+      border-color: var(--strong-2);
+    }
+
+    .danger {
+      color: white;
+      background: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .workspace {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 253, 248, .76);
+      backdrop-filter: blur(8px);
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffaf1;
+    }
+
+    .tabs button {
+      border: 0;
+      min-height: 30px;
+      background: transparent;
+    }
+
+    .tabs button[aria-pressed="true"] {
+      background: var(--ink);
+      color: white;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .stage-wrap {
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      padding: 24px;
+    }
+
+    .stage {
+      position: relative;
+      width: var(--room-w, 720px);
+      height: var(--room-d, 540px);
+      min-width: 180px;
+      min-height: 180px;
+      margin: 0 auto;
+      border: 2px solid var(--ink);
+      background-color: #fffdf8;
+      background-image:
+        linear-gradient(to right, rgba(49, 92, 90, .16) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(49, 92, 90, .16) 1px, transparent 1px);
+      background-size: var(--grid, 12px) var(--grid, 12px);
+      box-shadow: var(--shadow);
+    }
+
+    .item {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: var(--w);
+      height: var(--d);
+      transform: translate(var(--x), var(--y));
+      border: 2px solid rgba(31, 37, 39, .72);
+      border-radius: 6px;
+      background: var(--c);
+      display: grid;
+      place-items: center;
+      color: rgba(0, 0, 0, .72);
+      font-size: 12px;
+      font-weight: 700;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+    }
+
+    .item[aria-selected="true"] {
+      outline: 3px solid var(--strong-2);
+      outline-offset: 2px;
+      z-index: 2;
+    }
+
+    .item[data-overlap="true"] {
+      border-color: var(--danger);
+      box-shadow: inset 0 0 0 3px rgba(180, 61, 49, .18);
+    }
+
+    .item:active { cursor: grabbing; }
+
+    .door2d {
+      position: absolute;
+      z-index: 4;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: var(--door-color);
+      overflow: visible;
+    }
+
+    .door2d[data-wall="back"] {
+      left: var(--door-offset);
+      top: -5px;
+      width: var(--door-size);
+      height: 10px;
+    }
+
+    .door2d[data-wall="left"] {
+      left: -5px;
+      top: var(--door-offset);
+      width: 10px;
+      height: var(--door-size);
+    }
+
+    .door2d[aria-selected="true"] {
+      outline: 3px solid var(--strong-2);
+      outline-offset: 3px;
+    }
+
+    .door-leaf-2d {
+      position: absolute;
+      display: block;
+      background: var(--door-color);
+      transform-origin: var(--hinge-x) var(--hinge-y);
+    }
+
+    .door2d[data-wall="back"] .door-leaf-2d {
+      left: 0;
+      top: 4px;
+      width: 100%;
+      height: 3px;
+      transform: rotate(var(--door-angle));
+    }
+
+    .door2d[data-wall="left"] .door-leaf-2d {
+      left: 4px;
+      top: 0;
+      width: 3px;
+      height: 100%;
+      transform: rotate(var(--door-angle));
+    }
+
+    .door-tag {
+      position: absolute;
+      padding: 2px 5px;
+      border: 1px solid rgba(31, 37, 39, .25);
+      border-radius: 4px;
+      background: rgba(255, 253, 248, .94);
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .door2d[data-wall="back"] .door-tag { left: 50%; top: 12px; transform: translateX(-50%); }
+    .door2d[data-wall="left"] .door-tag { left: 12px; top: 50%; transform: translateY(-50%); }
+
+    .viewer3d {
+      display: none;
+      min-height: 0;
+      overflow: hidden;
+      perspective: 1100px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      background:
+        linear-gradient(180deg, #eef2ed 0%, #f6f3ec 50%, #ded7ca 100%);
+    }
+
+    .viewer3d.active { display: grid; place-items: center; }
+    .viewer3d.dragging { cursor: grabbing; }
+
+    .view-controls {
+      position: absolute;
+      left: 18px;
+      bottom: 18px;
+      z-index: 3;
+      display: grid;
+      gap: 8px;
+      width: min(430px, calc(100% - 36px));
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, .9);
+      box-shadow: var(--shadow);
+    }
+
+    .view-help {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .scene {
+      position: relative;
+      width: var(--room-w, 720px);
+      height: var(--room-d, 540px);
+      max-width: 78vw;
+      max-height: 72vh;
+      transform-style: preserve-3d;
+      transform-origin: 50% 50%;
+      transform: translate(var(--view-pan-x, 0px), var(--view-pan-y, 0px)) scale(var(--view-zoom, 1)) rotateX(var(--view-x, 62deg)) rotateZ(var(--view-z, -38deg));
+    }
+
+    .floor {
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--ink);
+      background:
+        linear-gradient(to right, rgba(49, 92, 90, .14) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(49, 92, 90, .14) 1px, transparent 1px),
+        #fffdf8;
+      background-size: var(--grid, 12px) var(--grid, 12px);
+      transform-style: preserve-3d;
+      box-shadow: 0 30px 60px rgba(31,37,39,.2);
+    }
+
+    .wall-panel {
+      position: absolute;
+      background: rgba(255, 250, 241, .86);
+      border: 1px solid var(--line);
+      transform-origin: left top;
+    }
+
+    .wall-back-panel {
+      left: var(--panel-start);
+      top: 0;
+      width: var(--panel-span);
+      height: var(--panel-height);
+      transform: translateZ(var(--panel-z)) rotateX(90deg);
+    }
+
+    .wall-left-panel {
+      left: 0;
+      top: var(--panel-start);
+      width: var(--panel-height);
+      height: var(--panel-span);
+      transform: translateZ(var(--panel-z)) rotateY(-90deg);
+    }
+
+    .door3d {
+      position: absolute;
+      z-index: 2;
+      background: var(--door-color);
+      border: 2px solid rgba(31, 37, 39, .5);
+      transform-style: preserve-3d;
+      backface-visibility: visible;
+    }
+
+    .door3d-back {
+      left: var(--door-offset);
+      top: 0;
+      width: var(--door-size);
+      height: var(--door-height);
+      transform-origin: var(--hinge-x) 0;
+      transform: translateZ(2px) rotateZ(var(--door-angle)) rotateX(90deg);
+    }
+
+    .door3d-left {
+      left: 0;
+      top: var(--door-offset);
+      width: var(--door-height);
+      height: var(--door-size);
+      transform-origin: 0 var(--hinge-y);
+      transform: translateZ(2px) rotateZ(var(--door-angle)) rotateY(-90deg);
+    }
+
+    .door-knob {
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #293334;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.45);
+    }
+
+    .door3d-back .door-knob { left: var(--knob-x); top: 52%; }
+    .door3d-left .door-knob { left: 52%; top: var(--knob-y); }
+
+    .door-list-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+
+    .door-list-row > button:first-child {
+      grid-template-columns: 1fr;
+    }
+
+    .door-list-row .danger {
+      color: var(--ink);
+    }
+
+    .box3d {
+      position: absolute;
+      left: var(--x);
+      top: var(--y);
+      width: var(--w);
+      height: var(--d);
+      transform-style: preserve-3d;
+      transform: translateZ(var(--z));
+    }
+
+    .face {
+      position: absolute;
+      background: var(--c);
+      border: 1px solid rgba(31, 37, 39, .35);
+      backface-visibility: visible;
+    }
+
+    .face-top,
+    .face-bottom {
+      inset: 0;
+    }
+
+    .face-top {
+      transform: translateZ(var(--h));
+      filter: brightness(1.05);
+    }
+
+    .face-bottom {
+      transform: translateZ(0);
+      filter: brightness(.58);
+    }
+
+    .face-front,
+    .face-back {
+      left: 0;
+      width: var(--w);
+      height: var(--h);
+      transform-origin: top;
+    }
+
+    .face-front {
+      top: 100%;
+      transform: rotateX(90deg);
+      filter: brightness(.82);
+    }
+
+    .face-back {
+      top: 0;
+      transform: rotateX(90deg);
+      filter: brightness(.74);
+    }
+
+    .face-right,
+    .face-left {
+      top: 0;
+      width: var(--h);
+      height: var(--d);
+      transform-origin: left;
+    }
+
+    .face-right {
+      left: 100%;
+      transform: rotateY(-90deg);
+      filter: brightness(.68);
+    }
+
+    .face-left {
+      left: 0;
+      transform: rotateY(-90deg);
+      filter: brightness(.76);
+    }
+
+    .box-label {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 2;
+      max-width: max(110px, var(--w));
+      padding: 5px 8px;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+      backface-visibility: visible;
+      border: 1px solid rgba(31, 37, 39, .24);
+      border-radius: 4px;
+      background: rgba(255, 253, 248, .92);
+      box-shadow: 0 2px 8px rgba(31, 37, 39, .14);
+      transform: translate(-50%, -50%) translateZ(calc(var(--h) + 8px));
+    }
+
+    .list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .list button {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 8px;
+      align-items: center;
+      text-align: left;
+      min-height: 42px;
+      background: #fff;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1px solid rgba(31,37,39,.3);
+      background: var(--c);
+    }
+
+    .empty {
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .panel, .side-right { border: 0; border-bottom: 1px solid var(--line); }
+      .workspace { min-height: 620px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <aside class="panel">
+      <div class="brand">
+        <h1>Room Grid<br>Studio</h1>
+        <span class="badge">10mm grid</span>
+      </div>
+
+      <h2>방 크기</h2>
+      <div class="field-grid">
+        <label>가로 mm <input id="roomWidth" type="number" min="100" step="10" value="3600"></label>
+        <label>세로 mm <input id="roomDepth" type="number" min="100" step="10" value="3000"></label>
+        <label>높이 mm <input id="roomHeight" type="number" min="100" step="10" value="2400"></label>
+      </div>
+      <div class="actions">
+        <button class="primary" id="applyRoom">방 적용</button>
+        <button id="fitRoom">화면 맞춤</button>
+      </div>
+
+      <h2>저장</h2>
+      <div class="actions">
+        <button id="savePlan">저장</button>
+        <button id="loadPlan">불러오기</button>
+        <button id="resetPlan">초기화</button>
+      </div>
+
+      <h2>가구 추가</h2>
+      <div class="field-grid">
+        <label style="grid-column:1 / -1">이름 <input id="fName" type="text" value="수납장"></label>
+        <label>가로 mm <input id="fWidth" type="number" min="10" step="10" value="800"></label>
+        <label>세로 mm <input id="fDepth" type="number" min="10" step="10" value="450"></label>
+        <label>높이 mm <input id="fHeight" type="number" min="10" step="10" value="900"></label>
+        <label>고도 mm <input id="fZ" type="number" min="0" step="10" value="0"></label>
+        <label>색상 <input id="fColor" type="color" value="#8fb6a8"></label>
+      </div>
+      <div class="actions">
+        <button class="accent" id="addFurniture">가구 추가</button>
+      </div>
+
+      <h2>출입문 추가</h2>
+      <div class="field-grid">
+        <label style="grid-column:1 / -1">이름 <input id="dName" type="text" value="출입문"></label>
+        <label>설치 벽
+          <select id="dWall">
+            <option value="back">뒷벽</option>
+            <option value="left">왼쪽 벽</option>
+          </select>
+        </label>
+        <label>벽 시작점부터 mm <input id="dOffset" type="number" min="0" step="10" value="300"></label>
+        <label>문 폭 mm <input id="dWidth" type="number" min="100" step="10" value="900"></label>
+        <label>문 높이 mm <input id="dHeight" type="number" min="100" step="10" value="2100"></label>
+        <label>경첩
+          <select id="dHinge">
+            <option value="start">시작점 쪽</option>
+            <option value="end">끝점 쪽</option>
+          </select>
+        </label>
+        <label>열림 방향
+          <select id="dSwing">
+            <option value="in">방 안쪽</option>
+            <option value="out">방 바깥쪽</option>
+          </select>
+        </label>
+        <label>색상 <input id="dColor" type="color" value="#b9855b"></label>
+      </div>
+      <div class="actions">
+        <button class="accent" id="addDoor">출입문 추가</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <div class="toolbar">
+        <div class="tabs" role="group" aria-label="보기 전환">
+          <button id="tab2d" type="button" aria-pressed="true">2D</button>
+          <button id="tab3d" type="button" aria-pressed="false">3D 변환</button>
+        </div>
+        <div class="meta" id="roomMeta"></div>
+      </div>
+      <div class="stage-wrap" id="stageWrap">
+        <div class="stage" id="stage" aria-label="2D 방 배치판"></div>
+      </div>
+      <div class="viewer3d" id="viewer3d" aria-label="3D 방 보기">
+        <div class="view-controls" aria-label="3D 보기 제어">
+          <div class="view-help">드래그: 회전 · Shift/오른쪽 드래그: 이동 · 마우스 휠: 확대·축소</div>
+          <div class="actions">
+            <button id="resetView">보기 초기화</button>
+          </div>
+        </div>
+        <div class="scene" id="scene">
+          <div class="floor" id="floor"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel side-right">
+      <h2>선택 가구 수정</h2>
+      <div id="editorEmpty" class="empty">가구를 추가한 뒤 2D 배치판이나 목록에서 선택하세요.</div>
+      <div id="editor" class="hidden">
+        <div class="field-grid">
+          <label style="grid-column:1 / -1">이름 <input id="eName" type="text"></label>
+          <label>X mm <input id="eX" type="number" min="0" step="10"></label>
+          <label>Y mm <input id="eY" type="number" min="0" step="10"></label>
+          <label>가로 mm <input id="eWidth" type="number" min="10" step="10"></label>
+          <label>세로 mm <input id="eDepth" type="number" min="10" step="10"></label>
+          <label>높이 mm <input id="eHeight" type="number" min="10" step="10"></label>
+          <label>고도 mm <input id="eZ" type="number" min="0" step="10"></label>
+          <label>색상 <input id="eColor" type="color"></label>
+        </div>
+        <div class="actions">
+          <button class="primary" id="updateFurniture">수정 적용</button>
+          <button id="rotateFurniture">90도 회전</button>
+          <button class="danger" id="deleteFurniture">삭제</button>
+        </div>
+      </div>
+
+      <h2>가구 목록</h2>
+      <div class="list" id="list"></div>
+
+      <h2>선택 출입문 수정</h2>
+      <div id="doorEditorEmpty" class="empty">2D 배치판이나 출입문 목록에서 문을 선택하세요.</div>
+      <div id="doorEditor" class="hidden">
+        <div class="field-grid">
+          <label style="grid-column:1 / -1">이름 <input id="edName" type="text"></label>
+          <label>설치 벽
+            <select id="edWall">
+              <option value="back">뒷벽</option>
+              <option value="left">왼쪽 벽</option>
+            </select>
+          </label>
+          <label>벽 시작점부터 mm <input id="edOffset" type="number" min="0" step="10"></label>
+          <label>문 폭 mm <input id="edWidth" type="number" min="100" step="10"></label>
+          <label>문 높이 mm <input id="edHeight" type="number" min="100" step="10"></label>
+          <label>경첩
+            <select id="edHinge">
+              <option value="start">시작점 쪽</option>
+              <option value="end">끝점 쪽</option>
+            </select>
+          </label>
+          <label>열림 방향
+            <select id="edSwing">
+              <option value="in">방 안쪽</option>
+              <option value="out">방 바깥쪽</option>
+            </select>
+          </label>
+          <label>색상 <input id="edColor" type="color"></label>
+        </div>
+        <div class="actions">
+          <button class="primary" id="updateDoor">문 수정 적용</button>
+          <button class="danger" id="deleteDoor">문 삭제</button>
+        </div>
+      </div>
+
+      <h2>출입문 목록</h2>
+      <div class="list" id="doorList"></div>
+    </aside>
+  </main>
+
+  <script>
+    const state = {
+      room: { width: 3600, depth: 3000, height: 2400 },
+      scale: 0.18,
+      items: [],
+      doors: [],
+      selectedId: null,
+      selectedDoorId: null,
+      mode: "2d",
+      status: "",
+      view: { x: 62, z: -38, panX: 0, panY: 0, zoom: 1 }
+    };
+
+    const storageKey = "room-grid-studio-plan";
+    const $ = (id) => document.getElementById(id);
+    const snap = (value) => Math.round(value / 10) * 10;
+    const px = (mm) => `${mm * state.scale}px`;
+
+    function clampItem(item) {
+      item.width = Math.max(10, snap(item.width));
+      item.depth = Math.max(10, snap(item.depth));
+      item.height = Math.max(10, snap(item.height));
+      item.z = Math.min(Math.max(0, snap(item.z || 0)), Math.max(0, state.room.height - item.height));
+      item.x = Math.min(Math.max(0, snap(item.x)), Math.max(0, state.room.width - item.width));
+      item.y = Math.min(Math.max(0, snap(item.y)), Math.max(0, state.room.depth - item.depth));
+      return item;
+    }
+
+    function wallLength(wall) {
+      return wall === "left" ? state.room.depth : state.room.width;
+    }
+
+    function clampDoor(door) {
+      door.wall = door.wall === "left" ? "left" : "back";
+      door.name = String(door.name || "출입문");
+      door.color = /^#[0-9a-f]{6}$/i.test(door.color || "") ? door.color : "#b9855b";
+      const length = wallLength(door.wall);
+      door.width = Math.min(length, Math.max(100, snap(door.width || 900)));
+      door.height = Math.min(state.room.height, Math.max(100, snap(door.height || 2100)));
+      door.offset = Math.min(Math.max(0, snap(door.offset || 0)), Math.max(0, length - door.width));
+      door.hinge = door.hinge === "end" ? "end" : "start";
+      door.swing = door.swing === "out" ? "out" : "in";
+      return door;
+    }
+
+    function setScaleToFit() {
+      const wrap = $("stageWrap");
+      const availableW = Math.max(280, wrap.clientWidth - 64);
+      const availableH = Math.max(280, wrap.clientHeight - 64);
+      state.scale = Math.min(0.28, availableW / state.room.width, availableH / state.room.depth);
+      state.scale = Math.max(0.04, state.scale);
+      render();
+    }
+
+    function render() {
+      const gridPx = Math.max(4, 10 * state.scale);
+      const overlapCount = countOverlaps();
+      document.documentElement.style.setProperty("--grid", `${gridPx}px`);
+      document.documentElement.style.setProperty("--room-w", px(state.room.width));
+      document.documentElement.style.setProperty("--room-d", px(state.room.depth));
+      document.documentElement.style.setProperty("--wall-h", px(state.room.height));
+      document.documentElement.style.setProperty("--view-x", `${state.view.x}deg`);
+      document.documentElement.style.setProperty("--view-z", `${state.view.z}deg`);
+      document.documentElement.style.setProperty("--view-zoom", state.view.zoom);
+      document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
+      document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
+      $("roomMeta").textContent = `${state.room.width} x ${state.room.depth} x ${state.room.height} mm${overlapCount ? " · 겹침 " + overlapCount + "건" : ""}${state.status ? " · " + state.status : ""}`;
+
+      render2d();
+      render3d();
+      renderList();
+      renderEditor();
+      renderDoorList();
+      renderDoorEditor();
+      $("stageWrap").classList.toggle("hidden", state.mode !== "2d");
+      $("viewer3d").classList.toggle("active", state.mode === "3d");
+      $("tab2d").setAttribute("aria-pressed", state.mode === "2d");
+      $("tab3d").setAttribute("aria-pressed", state.mode === "3d");
+    }
+
+    function render2d() {
+      const stage = $("stage");
+      stage.replaceChildren();
+      state.items.forEach((item) => {
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = "item";
+        el.textContent = item.name;
+        el.dataset.id = item.id;
+        el.style.setProperty("--x", px(item.x));
+        el.style.setProperty("--y", px(item.y));
+        el.style.setProperty("--w", px(item.width));
+        el.style.setProperty("--d", px(item.depth));
+        el.style.setProperty("--c", item.color);
+        el.setAttribute("aria-selected", item.id === state.selectedId);
+        el.dataset.overlap = hasOverlap(item);
+        el.addEventListener("pointerdown", startDrag);
+        el.addEventListener("click", () => selectItem(item.id));
+        stage.appendChild(el);
+      });
+      state.doors.forEach((door) => {
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = "door2d";
+        el.dataset.wall = door.wall;
+        el.style.setProperty("--door-offset", px(door.offset));
+        el.style.setProperty("--door-size", px(door.width));
+        el.style.setProperty("--door-color", door.color);
+        el.style.setProperty("--hinge-x", door.hinge === "start" ? "0%" : "100%");
+        el.style.setProperty("--hinge-y", door.hinge === "start" ? "0%" : "100%");
+        el.style.setProperty("--door-angle", `${doorAngle(door, 90)}deg`);
+        el.setAttribute("aria-label", `${door.name} 선택`);
+        el.setAttribute("aria-selected", door.id === state.selectedDoorId);
+        const leaf = document.createElement("span");
+        leaf.className = "door-leaf-2d";
+        const tag = document.createElement("span");
+        tag.className = "door-tag";
+        tag.textContent = door.name;
+        el.append(leaf, tag);
+        el.addEventListener("click", () => selectDoor(door.id));
+        stage.appendChild(el);
+      });
+    }
+
+    function render3d() {
+      const floor = $("floor");
+      floor.replaceChildren();
+      renderWall(floor, "back");
+      renderWall(floor, "left");
+      state.items.forEach((item) => {
+        const box = document.createElement("div");
+        box.className = "box3d";
+        box.style.setProperty("--x", px(item.x));
+        box.style.setProperty("--y", px(item.y));
+        box.style.setProperty("--w", px(item.width));
+        box.style.setProperty("--d", px(item.depth));
+        box.style.setProperty("--h", px(item.height));
+        box.style.setProperty("--z", px(item.z || 0));
+        box.style.setProperty("--c", item.color);
+        ["top", "bottom", "front", "back", "right", "left"].forEach((face) => {
+          const side = document.createElement("div");
+          side.className = `face face-${face}`;
+          box.appendChild(side);
+        });
+        const label = document.createElement("div");
+        label.className = "box-label";
+        label.textContent = item.name;
+        label.setAttribute("aria-hidden", "true");
+        box.appendChild(label);
+        floor.appendChild(box);
+      });
+    }
+
+    function renderWall(parent, wall) {
+      const doors = state.doors.filter((door) => door.wall === wall).sort((a, b) => a.offset - b.offset);
+      let cursor = 0;
+      doors.forEach((door) => {
+        addWallPanel(parent, wall, cursor, Math.max(0, door.offset - cursor), 0, state.room.height);
+        addWallPanel(parent, wall, door.offset, door.width, door.height, state.room.height - door.height);
+        addDoor3d(parent, door);
+        cursor = Math.max(cursor, door.offset + door.width);
+      });
+      addWallPanel(parent, wall, cursor, Math.max(0, wallLength(wall) - cursor), 0, state.room.height);
+    }
+
+    function addWallPanel(parent, wall, start, span, z, height) {
+      if (span <= 0 || height <= 0) return;
+      const panel = document.createElement("div");
+      panel.className = `wall-panel wall-${wall}-panel`;
+      panel.style.setProperty("--panel-start", px(start));
+      panel.style.setProperty("--panel-span", px(span));
+      panel.style.setProperty("--panel-z", px(z));
+      panel.style.setProperty("--panel-height", px(height));
+      parent.appendChild(panel);
+    }
+
+    function doorAngle(door, amount) {
+      const inward = door.wall === "back"
+        ? (door.hinge === "start" ? amount : -amount)
+        : (door.hinge === "start" ? -amount : amount);
+      return door.swing === "in" ? inward : -inward;
+    }
+
+    function addDoor3d(parent, door) {
+      const leaf = document.createElement("div");
+      leaf.className = `door3d door3d-${door.wall}`;
+      leaf.style.setProperty("--door-offset", px(door.offset));
+      leaf.style.setProperty("--door-size", px(door.width));
+      leaf.style.setProperty("--door-height", px(door.height));
+      leaf.style.setProperty("--door-color", door.color);
+      leaf.style.setProperty("--door-angle", `${doorAngle(door, 55)}deg`);
+      leaf.style.setProperty("--hinge-x", door.hinge === "start" ? "0%" : "100%");
+      leaf.style.setProperty("--hinge-y", door.hinge === "start" ? "0%" : "100%");
+      leaf.style.setProperty("--knob-x", door.hinge === "start" ? "84%" : "12%");
+      leaf.style.setProperty("--knob-y", door.hinge === "start" ? "84%" : "12%");
+      const knob = document.createElement("span");
+      knob.className = "door-knob";
+      leaf.appendChild(knob);
+      parent.appendChild(leaf);
+    }
+
+    function renderList() {
+      const list = $("list");
+      list.replaceChildren();
+      if (!state.items.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "아직 추가된 가구가 없습니다.";
+        list.appendChild(empty);
+        return;
+      }
+      state.items.forEach((item) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.dataset.id = item.id;
+        const swatch = document.createElement("span");
+        swatch.className = "swatch";
+        swatch.style.setProperty("--c", item.color);
+        const content = document.createElement("span");
+        content.append(document.createTextNode(`${item.name}${hasOverlap(item) ? " · 겹침" : ""}`), document.createElement("br"));
+        const detail = document.createElement("small");
+        detail.textContent = `${item.width} x ${item.depth} x ${item.height} mm · 고도 ${item.z || 0} mm`;
+        content.appendChild(detail);
+        row.append(swatch, content);
+        row.addEventListener("click", () => selectItem(item.id));
+        list.appendChild(row);
+      });
+    }
+
+    function renderEditor() {
+      const item = selectedItem();
+      $("editor").classList.toggle("hidden", !item);
+      $("editorEmpty").classList.toggle("hidden", !!item);
+      if (!item) return;
+      $("eName").value = item.name;
+      $("eX").value = item.x;
+      $("eY").value = item.y;
+      $("eWidth").value = item.width;
+      $("eDepth").value = item.depth;
+      $("eHeight").value = item.height;
+      $("eZ").value = item.z || 0;
+      $("eColor").value = item.color;
+    }
+
+    function renderDoorList() {
+      const list = $("doorList");
+      list.replaceChildren();
+      if (!state.doors.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "아직 추가된 출입문이 없습니다.";
+        list.appendChild(empty);
+        return;
+      }
+      state.doors.forEach((door) => {
+        const row = document.createElement("div");
+        row.className = "door-list-row";
+        const select = document.createElement("button");
+        select.type = "button";
+        const wallName = door.wall === "back" ? "뒷벽" : "왼쪽 벽";
+        select.textContent = `${door.name} · ${wallName} ${door.offset} mm · ${door.width} x ${door.height} mm`;
+        select.addEventListener("click", () => selectDoor(door.id));
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "danger";
+        remove.textContent = "삭제";
+        remove.setAttribute("aria-label", `${door.name} 삭제`);
+        remove.addEventListener("click", () => removeDoor(door.id));
+        row.append(select, remove);
+        list.appendChild(row);
+      });
+    }
+
+    function renderDoorEditor() {
+      const door = selectedDoor();
+      $("doorEditor").classList.toggle("hidden", !door);
+      $("doorEditorEmpty").classList.toggle("hidden", !!door);
+      if (!door) return;
+      $("edName").value = door.name;
+      $("edWall").value = door.wall;
+      $("edOffset").value = door.offset;
+      $("edWidth").value = door.width;
+      $("edHeight").value = door.height;
+      $("edHinge").value = door.hinge;
+      $("edSwing").value = door.swing;
+      $("edColor").value = door.color;
+    }
+
+    function selectedItem() {
+      return state.items.find((item) => item.id === state.selectedId);
+    }
+
+    function selectedDoor() {
+      return state.doors.find((door) => door.id === state.selectedDoorId);
+    }
+
+    function selectItem(id) {
+      state.selectedId = id;
+      state.selectedDoorId = null;
+      state.mode = "2d";
+      state.status = "";
+      render();
+    }
+
+    function selectDoor(id) {
+      state.selectedDoorId = id;
+      state.selectedId = null;
+      state.mode = "2d";
+      state.status = "";
+      render();
+    }
+
+    function removeDoor(id) {
+      state.doors = state.doors.filter((door) => door.id !== id);
+      if (state.selectedDoorId === id) state.selectedDoorId = state.doors[0]?.id || null;
+      state.status = "출입문 삭제됨";
+      render();
+    }
+
+    function doorOverlaps(candidate, ignoreId = null) {
+      return state.doors.some((door) => door.id !== ignoreId && door.wall === candidate.wall &&
+        candidate.offset < door.offset + door.width && candidate.offset + candidate.width > door.offset);
+    }
+
+    function itemsOverlap(a, b) {
+      return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.depth && a.y + a.depth > b.y;
+    }
+
+    function hasOverlap(item) {
+      return state.items.some((other) => other.id !== item.id && itemsOverlap(item, other));
+    }
+
+    function countOverlaps() {
+      let count = 0;
+      for (let i = 0; i < state.items.length; i += 1) {
+        for (let j = i + 1; j < state.items.length; j += 1) {
+          if (itemsOverlap(state.items[i], state.items[j])) count += 1;
+        }
+      }
+      return count;
+    }
+
+    function readNumber(id, fallback) {
+      const value = Number($(id).value);
+      return Number.isFinite(value) ? snap(value) : fallback;
+    }
+
+    $("applyRoom").addEventListener("click", () => {
+      state.room.width = Math.max(100, readNumber("roomWidth", state.room.width));
+      state.room.depth = Math.max(100, readNumber("roomDepth", state.room.depth));
+      state.room.height = Math.max(100, readNumber("roomHeight", state.room.height));
+      state.items.forEach(clampItem);
+      state.doors.forEach(clampDoor);
+      state.status = "";
+      setScaleToFit();
+    });
+
+    $("fitRoom").addEventListener("click", setScaleToFit);
+
+    $("addFurniture").addEventListener("click", () => {
+      const item = clampItem({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        name: $("fName").value.trim() || "가구",
+        width: Math.min(readNumber("fWidth", 800), state.room.width),
+        depth: Math.min(readNumber("fDepth", 450), state.room.depth),
+        height: Math.min(readNumber("fHeight", 900), state.room.height),
+        z: readNumber("fZ", 0),
+        color: $("fColor").value,
+        x: 0,
+        y: 0
+      });
+      state.items.push(item);
+      state.selectedId = item.id;
+      state.selectedDoorId = null;
+      state.status = hasOverlap(item) ? "겹침 감지" : "";
+      render();
+    });
+
+    $("addDoor").addEventListener("click", () => {
+      const door = clampDoor({
+        id: crypto.randomUUID ? crypto.randomUUID() : `door-${Date.now()}`,
+        name: $("dName").value.trim() || "출입문",
+        wall: $("dWall").value,
+        offset: readNumber("dOffset", 300),
+        width: readNumber("dWidth", 900),
+        height: readNumber("dHeight", 2100),
+        hinge: $("dHinge").value,
+        swing: $("dSwing").value,
+        color: $("dColor").value
+      });
+      if (doorOverlaps(door)) {
+        state.status = "같은 벽의 출입문과 겹쳐 추가되지 않음";
+        render();
+        return;
+      }
+      state.doors.push(door);
+      state.selectedDoorId = door.id;
+      state.selectedId = null;
+      state.status = "출입문 추가됨";
+      render();
+    });
+
+    $("updateFurniture").addEventListener("click", () => {
+      const item = selectedItem();
+      if (!item) return;
+      item.name = $("eName").value.trim() || "가구";
+      item.x = readNumber("eX", item.x);
+      item.y = readNumber("eY", item.y);
+      item.width = Math.min(readNumber("eWidth", item.width), state.room.width);
+      item.depth = Math.min(readNumber("eDepth", item.depth), state.room.depth);
+      item.height = Math.min(readNumber("eHeight", item.height), state.room.height);
+      item.z = readNumber("eZ", item.z || 0);
+      item.color = $("eColor").value;
+      clampItem(item);
+      state.status = hasOverlap(item) ? "겹침 감지" : "";
+      render();
+    });
+
+    $("rotateFurniture").addEventListener("click", () => {
+      const item = selectedItem();
+      if (!item) return;
+      const nextWidth = item.depth;
+      item.depth = item.width;
+      item.width = nextWidth;
+      clampItem(item);
+      state.status = hasOverlap(item) ? "겹침 감지" : "90도 회전";
+      render();
+    });
+
+    $("deleteFurniture").addEventListener("click", () => {
+      state.items = state.items.filter((item) => item.id !== state.selectedId);
+      state.selectedId = state.items[0]?.id || null;
+      state.status = "삭제됨";
+      render();
+    });
+
+    $("updateDoor").addEventListener("click", () => {
+      const door = selectedDoor();
+      if (!door) return;
+      const previous = { ...door };
+      door.name = $("edName").value.trim() || "출입문";
+      door.wall = $("edWall").value;
+      door.offset = readNumber("edOffset", door.offset);
+      door.width = readNumber("edWidth", door.width);
+      door.height = readNumber("edHeight", door.height);
+      door.hinge = $("edHinge").value;
+      door.swing = $("edSwing").value;
+      door.color = $("edColor").value;
+      clampDoor(door);
+      if (doorOverlaps(door, door.id)) {
+        Object.assign(door, previous);
+        state.status = "같은 벽의 출입문과 겹쳐 수정되지 않음";
+        render();
+        return;
+      }
+      state.status = "출입문 수정됨";
+      render();
+    });
+
+    $("deleteDoor").addEventListener("click", () => {
+      const door = selectedDoor();
+      if (door) removeDoor(door.id);
+    });
+
+    $("savePlan").addEventListener("click", () => {
+      localStorage.setItem(storageKey, JSON.stringify({ room: state.room, items: state.items, doors: state.doors, view: state.view }));
+      state.status = "저장됨";
+      render();
+    });
+
+    $("loadPlan").addEventListener("click", () => {
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) {
+        state.status = "저장 없음";
+        render();
+        return;
+      }
+      try {
+        const parsed = JSON.parse(saved);
+        state.room = parsed.room || state.room;
+        state.items = Array.isArray(parsed.items) ? parsed.items.map(clampItem) : [];
+        state.doors = Array.isArray(parsed.doors) ? parsed.doors.map(clampDoor) : [];
+        state.view = { x: 62, z: -38, panX: 0, panY: 0, zoom: 1, ...(parsed.view || {}) };
+        state.view.panX = Number.isFinite(Number(state.view.panX)) ? Number(state.view.panX) : 0;
+        state.view.panY = Number.isFinite(Number(state.view.panY)) ? Number(state.view.panY) : 0;
+        state.selectedId = state.items[0]?.id || null;
+        state.selectedDoorId = null;
+        $("roomWidth").value = state.room.width;
+        $("roomDepth").value = state.room.depth;
+        $("roomHeight").value = state.room.height;
+        state.status = "불러옴";
+        setScaleToFit();
+      } catch {
+        state.status = "불러오기 실패";
+        render();
+      }
+    });
+
+    $("resetPlan").addEventListener("click", () => {
+      state.items = [];
+      state.doors = [];
+      state.selectedId = null;
+      state.selectedDoorId = null;
+      localStorage.removeItem(storageKey);
+      state.status = "초기화됨";
+      render();
+    });
+
+    $("tab2d").addEventListener("click", () => { state.mode = "2d"; render(); });
+    $("tab3d").addEventListener("click", () => { state.mode = "3d"; render(); });
+
+    $("resetView").addEventListener("click", () => {
+      state.view = { x: 62, z: -38, panX: 0, panY: 0, zoom: 1 };
+      state.status = "보기 초기화";
+      render();
+    });
+
+    $("viewer3d").addEventListener("pointerdown", startViewDrag);
+    $("viewer3d").addEventListener("contextmenu", (event) => event.preventDefault());
+    $("viewer3d").addEventListener("wheel", zoomView, { passive: false });
+
+    function startDrag(event) {
+      const id = event.currentTarget.dataset.id;
+      const item = state.items.find((entry) => entry.id === id);
+      if (!item) return;
+      state.selectedId = id;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const originX = item.x;
+      const originY = item.y;
+      event.currentTarget.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent) => {
+        const dx = (moveEvent.clientX - startX) / state.scale;
+        const dy = (moveEvent.clientY - startY) / state.scale;
+        item.x = originX + dx;
+        item.y = originY + dy;
+        clampItem(item);
+        render();
+      };
+
+      const end = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", end);
+      };
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", end);
+    }
+
+    function startViewDrag(event) {
+      if (state.mode !== "3d") return;
+      if (event.target.closest(".view-controls")) return;
+      const viewer = $("viewer3d");
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const originX = state.view.x;
+      const originZ = state.view.z;
+      const originPanX = state.view.panX;
+      const originPanY = state.view.panY;
+      const isPan = event.button === 2 || event.button === 1 || event.shiftKey;
+      viewer.classList.add("dragging");
+      viewer.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent) => {
+        if (isPan) {
+          state.view.panX = originPanX + moveEvent.clientX - startX;
+          state.view.panY = originPanY + moveEvent.clientY - startY;
+          document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
+          document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
+        } else {
+          state.view.z = originZ + (moveEvent.clientX - startX) * 0.35;
+          state.view.x = Math.min(82, Math.max(18, originX - (moveEvent.clientY - startY) * 0.25));
+          document.documentElement.style.setProperty("--view-x", `${state.view.x}deg`);
+          document.documentElement.style.setProperty("--view-z", `${state.view.z}deg`);
+        }
+      };
+
+      const end = () => {
+        viewer.classList.remove("dragging");
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", end);
+      };
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", end);
+    }
+
+    function zoomView(event) {
+      if (state.mode !== "3d" || event.target.closest(".view-controls")) return;
+      event.preventDefault();
+      const viewerRect = $("viewer3d").getBoundingClientRect();
+      const cursorX = event.clientX - viewerRect.left - viewerRect.width / 2;
+      const cursorY = event.clientY - viewerRect.top - viewerRect.height / 2;
+      const previousZoom = state.view.zoom;
+      const nextZoom = Math.min(2.5, Math.max(0.35, previousZoom * Math.exp(-event.deltaY * 0.0015)));
+      const ratio = nextZoom / previousZoom;
+      state.view.panX = cursorX - (cursorX - state.view.panX) * ratio;
+      state.view.panY = cursorY - (cursorY - state.view.panY) * ratio;
+      state.view.zoom = nextZoom;
+      document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
+      document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
+      document.documentElement.style.setProperty("--view-zoom", state.view.zoom);
+    }
+
+    window.addEventListener("resize", setScaleToFit);
+    setScaleToFit();
+  </script>
+</body>
+</html>
