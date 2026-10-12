@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Room Grid Studio</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    }
+  }
+  </script>
   <style>
     :root {
       --ink: #1f2527;
@@ -349,9 +357,9 @@
 
     .viewer3d {
       display: none;
+      position: relative;
       min-height: 0;
       overflow: hidden;
-      perspective: 1100px;
       cursor: grab;
       touch-action: none;
       user-select: none;
@@ -359,8 +367,33 @@
         linear-gradient(180deg, #eef2ed 0%, #f6f3ec 50%, #ded7ca 100%);
     }
 
-    .viewer3d.active { display: grid; place-items: center; }
+    .viewer3d.active { display: block; }
     .viewer3d.dragging { cursor: grabbing; }
+
+    #threeCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      outline: none;
+      touch-action: none;
+    }
+
+    .three-status {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 2;
+      max-width: min(420px, calc(100% - 40px));
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, .94);
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      transform: translate(-50%, -50%);
+    }
 
     .view-controls {
       position: absolute;
@@ -404,92 +437,6 @@
       text-align: center;
     }
 
-    .scene {
-      position: relative;
-      width: var(--room-w, 720px);
-      height: var(--room-d, 540px);
-      max-width: 78vw;
-      max-height: 72vh;
-      transform-style: preserve-3d;
-      transform-origin: 50% 50%;
-      transform: translate(var(--view-pan-x, 0px), var(--view-pan-y, 0px)) scale(var(--view-zoom, 1)) rotateX(var(--view-x, 62deg)) rotateZ(var(--view-z, -38deg));
-    }
-
-    .floor {
-      position: absolute;
-      inset: 0;
-      border: 2px solid var(--ink);
-      background:
-        linear-gradient(to right, rgba(49, 92, 90, .14) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(49, 92, 90, .14) 1px, transparent 1px),
-        #fffdf8;
-      background-size: var(--grid, 12px) var(--grid, 12px);
-      transform-style: preserve-3d;
-      box-shadow: 0 30px 60px rgba(31,37,39,.2);
-    }
-
-    .wall-panel {
-      position: absolute;
-      background: rgba(255, 250, 241, .86);
-      border: 1px solid var(--line);
-      transform-origin: left top;
-    }
-
-    .wall-back-panel {
-      left: var(--panel-start);
-      top: 0;
-      width: var(--panel-span);
-      height: var(--panel-height);
-      transform: translateZ(var(--panel-z)) rotateX(90deg);
-    }
-
-    .wall-left-panel {
-      left: 0;
-      top: var(--panel-start);
-      width: var(--panel-height);
-      height: var(--panel-span);
-      transform: translateZ(var(--panel-z)) rotateY(-90deg);
-    }
-
-    .door3d {
-      position: absolute;
-      z-index: 2;
-      background: var(--door-color);
-      border: 2px solid rgba(31, 37, 39, .5);
-      transform-style: preserve-3d;
-      backface-visibility: visible;
-    }
-
-    .door3d-back {
-      left: var(--door-offset);
-      top: 0;
-      width: var(--door-size);
-      height: var(--door-height);
-      transform-origin: var(--hinge-x) 0;
-      transform: translateZ(2px) rotateZ(var(--door-angle)) rotateX(90deg);
-    }
-
-    .door3d-left {
-      left: 0;
-      top: var(--door-offset);
-      width: var(--door-height);
-      height: var(--door-size);
-      transform-origin: 0 var(--hinge-y);
-      transform: translateZ(2px) rotateZ(var(--door-angle)) rotateY(-90deg);
-    }
-
-    .door-knob {
-      position: absolute;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #293334;
-      box-shadow: 0 0 0 2px rgba(255,255,255,.45);
-    }
-
-    .door3d-back .door-knob { left: var(--knob-x); top: 52%; }
-    .door3d-left .door-knob { left: 52%; top: var(--knob-y); }
-
     .door-list-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -502,102 +449,6 @@
 
     .door-list-row .danger {
       color: var(--ink);
-    }
-
-    .box3d {
-      position: absolute;
-      left: var(--x);
-      top: var(--y);
-      width: var(--w);
-      height: var(--d);
-      transform-style: preserve-3d;
-      transform: translateZ(var(--z));
-    }
-
-    .face {
-      position: absolute;
-      background: var(--c);
-      border: 1px solid rgba(31, 37, 39, .35);
-      backface-visibility: visible;
-    }
-
-    .face-top,
-    .face-bottom {
-      inset: 0;
-    }
-
-    .face-top {
-      transform: translateZ(var(--h));
-      filter: brightness(1.05);
-    }
-
-    .face-bottom {
-      transform: translateZ(0);
-      filter: brightness(.58);
-    }
-
-    .face-front,
-    .face-back {
-      left: 0;
-      width: var(--w);
-      height: var(--h);
-      transform-origin: top;
-    }
-
-    .face-front {
-      top: 100%;
-      transform: rotateX(90deg);
-      filter: brightness(.82);
-    }
-
-    .face-back {
-      top: 0;
-      transform: rotateX(90deg);
-      filter: brightness(.74);
-    }
-
-    .face-right,
-    .face-left {
-      top: 0;
-      width: var(--h);
-      height: var(--d);
-      transform-origin: left;
-    }
-
-    .face-right {
-      left: 100%;
-      transform: rotateY(-90deg);
-      filter: brightness(.68);
-    }
-
-    .face-left {
-      left: 0;
-      transform: rotateY(-90deg);
-      filter: brightness(.76);
-    }
-
-    .box-label {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      z-index: 2;
-      max-width: max(110px, var(--w));
-      padding: 5px 8px;
-      overflow: hidden;
-      color: var(--ink);
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1;
-      text-align: center;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      pointer-events: none;
-      backface-visibility: visible;
-      border: 1px solid rgba(31, 37, 39, .24);
-      border-radius: 4px;
-      background: rgba(255, 253, 248, .92);
-      box-shadow: 0 2px 8px rgba(31, 37, 39, .14);
-      transform: translate(-50%, -50%) translateZ(calc(var(--h) + 8px));
     }
 
     .list {
@@ -734,9 +585,8 @@
             <button id="resetView">보기 초기화</button>
           </div>
         </div>
-        <div class="scene" id="scene">
-          <div class="floor" id="floor"></div>
-        </div>
+        <canvas id="threeCanvas" tabindex="0" aria-label="Three.js 3D 방 화면"></canvas>
+        <div class="three-status" id="threeStatus">3D 엔진을 불러오는 중입니다.</div>
       </div>
     </section>
 
@@ -817,6 +667,7 @@
     };
 
     const storageKey = "room-grid-studio-plan";
+    let threeApp = null;
     const $ = (id) => document.getElementById(id);
     const snap = (value) => Math.round(value / 10) * 10;
     const px = (mm) => `${mm * state.scale}px`;
@@ -864,12 +715,6 @@
       document.documentElement.style.setProperty("--room-w", px(state.room.width));
       document.documentElement.style.setProperty("--room-d", px(state.room.depth));
       document.documentElement.style.setProperty("--wall-h", px(state.room.height));
-      document.documentElement.style.setProperty("--view-x", `${state.view.x}deg`);
-      document.documentElement.style.setProperty("--view-z", `${state.view.z}deg`);
-      document.documentElement.style.setProperty("--view-zoom", state.view.zoom);
-      document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
-      document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
-      $("zoomValue").textContent = `${Math.round(state.view.zoom * 100)}%`;
       $("roomMeta").textContent = `${state.room.width} x ${state.room.depth} x ${state.room.height} mm${overlapCount ? " · 겹침 " + overlapCount + "건" : ""}${state.status ? " · " + state.status : ""}`;
 
       render2d();
@@ -942,55 +787,12 @@
     }
 
     function render3d() {
-      const floor = $("floor");
-      floor.replaceChildren();
-      renderWall(floor, "back");
-      renderWall(floor, "left");
-      state.items.forEach((item) => {
-        const box = document.createElement("div");
-        box.className = "box3d";
-        box.style.setProperty("--x", px(item.x));
-        box.style.setProperty("--y", px(item.y));
-        box.style.setProperty("--w", px(item.width));
-        box.style.setProperty("--d", px(item.depth));
-        box.style.setProperty("--h", px(item.height));
-        box.style.setProperty("--z", px(item.z || 0));
-        box.style.setProperty("--c", item.color);
-        ["top", "bottom", "front", "back", "right", "left"].forEach((face) => {
-          const side = document.createElement("div");
-          side.className = `face face-${face}`;
-          box.appendChild(side);
-        });
-        const label = document.createElement("div");
-        label.className = "box-label";
-        label.textContent = item.name;
-        label.setAttribute("aria-hidden", "true");
-        box.appendChild(label);
-        floor.appendChild(box);
-      });
-    }
-
-    function renderWall(parent, wall) {
-      const doors = state.doors.filter((door) => door.wall === wall).sort((a, b) => a.offset - b.offset);
-      let cursor = 0;
-      doors.forEach((door) => {
-        addWallPanel(parent, wall, cursor, Math.max(0, door.offset - cursor), 0, state.room.height);
-        addWallPanel(parent, wall, door.offset, door.width, door.height, state.room.height - door.height);
-        addDoor3d(parent, door);
-        cursor = Math.max(cursor, door.offset + door.width);
-      });
-      addWallPanel(parent, wall, cursor, Math.max(0, wallLength(wall) - cursor), 0, state.room.height);
-    }
-
-    function addWallPanel(parent, wall, start, span, z, height) {
-      if (span <= 0 || height <= 0) return;
-      const panel = document.createElement("div");
-      panel.className = `wall-panel wall-${wall}-panel`;
-      panel.style.setProperty("--panel-start", px(start));
-      panel.style.setProperty("--panel-span", px(span));
-      panel.style.setProperty("--panel-z", px(z));
-      panel.style.setProperty("--panel-height", px(height));
-      parent.appendChild(panel);
+      if (!threeApp) return;
+      threeApp.markDirty();
+      if (state.mode === "3d") {
+        threeApp.rebuild();
+        requestAnimationFrame(threeApp.resize);
+      }
     }
 
     function doorAngle(door, amount) {
@@ -998,24 +800,6 @@
         ? (door.hinge === "start" ? amount : -amount)
         : (door.hinge === "start" ? -amount : amount);
       return door.swing === "in" ? inward : -inward;
-    }
-
-    function addDoor3d(parent, door) {
-      const leaf = document.createElement("div");
-      leaf.className = `door3d door3d-${door.wall}`;
-      leaf.style.setProperty("--door-offset", px(door.offset));
-      leaf.style.setProperty("--door-size", px(door.width));
-      leaf.style.setProperty("--door-height", px(door.height));
-      leaf.style.setProperty("--door-color", door.color);
-      leaf.style.setProperty("--door-angle", `${doorAngle(door, 55)}deg`);
-      leaf.style.setProperty("--hinge-x", door.hinge === "start" ? "0%" : "100%");
-      leaf.style.setProperty("--hinge-y", door.hinge === "start" ? "0%" : "100%");
-      leaf.style.setProperty("--knob-x", door.hinge === "start" ? "84%" : "12%");
-      leaf.style.setProperty("--knob-y", door.hinge === "start" ? "84%" : "12%");
-      const knob = document.createElement("span");
-      knob.className = "door-knob";
-      leaf.appendChild(knob);
-      parent.appendChild(leaf);
     }
 
     function renderList() {
@@ -1164,6 +948,300 @@
       return Number.isFinite(value) ? snap(value) : fallback;
     }
 
+    async function loadThree() {
+      try {
+        const THREE = await import("three");
+        const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
+        threeApp = createThreeApp(THREE, OrbitControls);
+        $("threeStatus").classList.add("hidden");
+        threeApp.rebuild();
+        threeApp.restoreView(state.view);
+        if (state.mode === "3d") requestAnimationFrame(threeApp.resize);
+      } catch (error) {
+        $("threeStatus").textContent = "3D 엔진을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.";
+        console.error("Three.js load failed", error);
+      }
+    }
+
+    function createThreeApp(THREE, OrbitControls) {
+      const canvas = $("threeCanvas");
+      const viewer = $("viewer3d");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf2f3ef);
+      scene.fog = new THREE.Fog(0xf2f3ef, 9000, 22000);
+
+      const camera = new THREE.PerspectiveCamera(42, 1, 10, 50000);
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      const controls = new OrbitControls(camera, canvas);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.enablePan = true;
+      controls.screenSpacePanning = true;
+      controls.minPolarAngle = 0.08;
+      controls.maxPolarAngle = Math.PI * 0.49;
+      controls.touches.ONE = THREE.TOUCH.ROTATE;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8174, 2.2);
+      scene.add(hemi);
+      const sun = new THREE.DirectionalLight(0xffffff, 3.4);
+      sun.position.set(5000, 7000, 4500);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(2048, 2048);
+      sun.shadow.camera.near = 100;
+      sun.shadow.camera.far = 20000;
+      scene.add(sun);
+
+      const roomRoot = new THREE.Group();
+      scene.add(roomRoot);
+      let dirty = true;
+      let baseDistance = 1;
+
+      function material(color, roughness = 0.78) {
+        return new THREE.MeshStandardMaterial({ color, roughness, metalness: 0.03 });
+      }
+
+      function addBox(width, height, depth, x, y, z, color, options = {}) {
+        if (width <= 0 || height <= 0 || depth <= 0) return null;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material(color, options.roughness));
+        mesh.position.set(x, y, z);
+        mesh.castShadow = options.castShadow !== false;
+        mesh.receiveShadow = options.receiveShadow !== false;
+        roomRoot.add(mesh);
+        return mesh;
+      }
+
+      function addGrid() {
+        const positions = [];
+        const minor = [];
+        for (let x = 0; x <= state.room.width; x += 10) {
+          (x % 100 === 0 ? positions : minor).push(x, 2, 0, x, 2, state.room.depth);
+        }
+        for (let z = 0; z <= state.room.depth; z += 10) {
+          (z % 100 === 0 ? positions : minor).push(0, 2, z, state.room.width, 2, z);
+        }
+        [[minor, 0xc9ceca, 0.22], [positions, 0x8e9994, 0.38]].forEach(([data, color, opacity]) => {
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute("position", new THREE.Float32BufferAttribute(data, 3));
+          const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+          roomRoot.add(lines);
+        });
+      }
+
+      function addWallPanel(wall, start, span, y, height) {
+        if (span <= 0 || height <= 0) return;
+        const thickness = 60;
+        if (wall === "back") {
+          addBox(span, height, thickness, start + span / 2, y + height / 2, -thickness / 2, 0xfffaf1, { castShadow: false });
+        } else {
+          addBox(thickness, height, span, -thickness / 2, y + height / 2, start + span / 2, 0xfffaf1, { castShadow: false });
+        }
+      }
+
+      function addWall(wall) {
+        const doors = state.doors.filter((door) => door.wall === wall).sort((a, b) => a.offset - b.offset);
+        let cursor = 0;
+        doors.forEach((door) => {
+          addWallPanel(wall, cursor, Math.max(0, door.offset - cursor), 0, state.room.height);
+          addWallPanel(wall, door.offset, door.width, door.height, state.room.height - door.height);
+          addThreeDoor(door);
+          cursor = Math.max(cursor, door.offset + door.width);
+        });
+        addWallPanel(wall, cursor, Math.max(0, wallLength(wall) - cursor), 0, state.room.height);
+      }
+
+      function addThreeDoor(door) {
+        const group = new THREE.Group();
+        const angle = THREE.MathUtils.degToRad(55) * (door.swing === "in" ? 1 : -1);
+        let leaf;
+        if (door.wall === "back") {
+          const direction = door.hinge === "start" ? 1 : -1;
+          group.position.set(door.hinge === "start" ? door.offset : door.offset + door.width, door.height / 2, 0);
+          group.rotation.y = angle * (door.hinge === "start" ? -1 : 1);
+          leaf = new THREE.Mesh(new THREE.BoxGeometry(door.width, door.height, 40), material(door.color, 0.62));
+          leaf.position.x = direction * door.width / 2;
+          const knob = new THREE.Mesh(new THREE.SphereGeometry(28, 18, 12), material(0x263234, 0.35));
+          knob.position.set(direction * door.width * 0.4, 0, 34);
+          leaf.add(knob);
+        } else {
+          const direction = door.hinge === "start" ? 1 : -1;
+          group.position.set(0, door.height / 2, door.hinge === "start" ? door.offset : door.offset + door.width);
+          group.rotation.y = angle * (door.hinge === "start" ? 1 : -1);
+          leaf = new THREE.Mesh(new THREE.BoxGeometry(40, door.height, door.width), material(door.color, 0.62));
+          leaf.position.z = direction * door.width / 2;
+          const knob = new THREE.Mesh(new THREE.SphereGeometry(28, 18, 12), material(0x263234, 0.35));
+          knob.position.set(34, 0, direction * door.width * 0.4);
+          leaf.add(knob);
+        }
+        leaf.castShadow = true;
+        leaf.receiveShadow = true;
+        group.add(leaf);
+        roomRoot.add(group);
+      }
+
+      function makeLabel(text, width) {
+        const labelCanvas = document.createElement("canvas");
+        labelCanvas.width = 512;
+        labelCanvas.height = 128;
+        const context = labelCanvas.getContext("2d");
+        context.fillStyle = "rgba(255,253,248,.94)";
+        context.beginPath();
+        if (context.roundRect) context.roundRect(8, 8, 496, 112, 20);
+        else context.rect(8, 8, 496, 112);
+        context.fill();
+        context.strokeStyle = "rgba(31,37,39,.34)";
+        context.lineWidth = 6;
+        context.stroke();
+        context.fillStyle = "#1f2527";
+        context.font = "700 48px Segoe UI, sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        const clipped = text.length > 14 ? `${text.slice(0, 13)}…` : text;
+        context.fillText(clipped, 256, 65);
+        const texture = new THREE.CanvasTexture(labelCanvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true }));
+        const spriteWidth = Math.min(720, Math.max(300, width * 0.72));
+        sprite.scale.set(spriteWidth, spriteWidth / 4, 1);
+        return sprite;
+      }
+
+      function addFurniture(item) {
+        const mesh = addBox(
+          item.width,
+          item.height,
+          item.depth,
+          item.x + item.width / 2,
+          (item.z || 0) + item.height / 2,
+          item.y + item.depth / 2,
+          item.color,
+          { roughness: 0.7 }
+        );
+        if (!mesh) return;
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(mesh.geometry),
+          new THREE.LineBasicMaterial({ color: 0x34413f, transparent: true, opacity: 0.7 })
+        );
+        mesh.add(edges);
+        const label = makeLabel(item.name, item.width);
+        label.position.set(item.x + item.width / 2, (item.z || 0) + item.height + 120, item.y + item.depth / 2);
+        roomRoot.add(label);
+      }
+
+      function disposeObject(object) {
+        object.traverse((child) => {
+          child.geometry?.dispose();
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.filter(Boolean).forEach((entry) => {
+            entry.map?.dispose();
+            entry.dispose();
+          });
+        });
+      }
+
+      function rebuild() {
+        if (!dirty) return;
+        roomRoot.children.forEach(disposeObject);
+        roomRoot.clear();
+        addBox(state.room.width, 20, state.room.depth, state.room.width / 2, -10, state.room.depth / 2, 0xf8f6ef, { castShadow: false });
+        addGrid();
+        addWall("back");
+        addWall("left");
+        state.items.forEach(addFurniture);
+        const span = Math.max(state.room.width, state.room.depth, state.room.height);
+        controls.minDistance = Math.max(250, span * 0.12);
+        controls.maxDistance = span * 5;
+        sun.shadow.camera.left = -span * 1.5;
+        sun.shadow.camera.right = span * 1.5;
+        sun.shadow.camera.top = span * 1.5;
+        sun.shadow.camera.bottom = -span * 1.5;
+        sun.shadow.camera.updateProjectionMatrix();
+        dirty = false;
+      }
+
+      function resetView() {
+        const span = Math.max(state.room.width, state.room.depth, state.room.height);
+        controls.target.set(state.room.width / 2, state.room.height * 0.3, state.room.depth / 2);
+        camera.position.set(state.room.width * 1.2, Math.max(state.room.height * 1.15, span), state.room.depth * 1.35);
+        camera.near = Math.max(1, span / 1000);
+        camera.far = span * 12;
+        camera.updateProjectionMatrix();
+        controls.update();
+        baseDistance = camera.position.distanceTo(controls.target);
+        updateZoomValue();
+      }
+
+      function updateZoomValue() {
+        const distance = Math.max(1, camera.position.distanceTo(controls.target));
+        $("zoomValue").textContent = `${Math.round(baseDistance / distance * 100)}%`;
+      }
+
+      function zoom(factor) {
+        const direction = camera.position.clone().sub(controls.target);
+        const distance = Math.min(controls.maxDistance, Math.max(controls.minDistance, direction.length() / factor));
+        camera.position.copy(controls.target).add(direction.normalize().multiplyScalar(distance));
+        controls.update();
+        updateZoomValue();
+      }
+
+      function resize() {
+        const width = viewer.clientWidth;
+        const height = viewer.clientHeight;
+        if (width < 2 || height < 2) return;
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+
+      function captureView() {
+        return {
+          camera: camera.position.toArray(),
+          target: controls.target.toArray()
+        };
+      }
+
+      function restoreView(view) {
+        if (!Array.isArray(view?.camera) || !Array.isArray(view?.target)) return false;
+        camera.position.fromArray(view.camera);
+        controls.target.fromArray(view.target);
+        controls.update();
+        updateZoomValue();
+        return true;
+      }
+
+      controls.addEventListener("start", () => viewer.classList.add("dragging"));
+      controls.addEventListener("end", () => viewer.classList.remove("dragging"));
+      controls.addEventListener("change", updateZoomValue);
+      const observer = new ResizeObserver(resize);
+      observer.observe(viewer);
+      resetView();
+      resize();
+
+      function animate() {
+        if (state.mode === "3d") {
+          controls.update();
+          renderer.render(scene, camera);
+        }
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      return {
+        markDirty() { dirty = true; },
+        rebuild,
+        resize,
+        resetView,
+        zoom,
+        captureView,
+        restoreView
+      };
+    }
+
     $("applyRoom").addEventListener("click", () => {
       state.room.width = Math.max(100, readNumber("roomWidth", state.room.width));
       state.room.depth = Math.max(100, readNumber("roomDepth", state.room.depth));
@@ -1282,6 +1360,7 @@
     });
 
     $("savePlan").addEventListener("click", () => {
+      if (threeApp) state.view = threeApp.captureView();
       localStorage.setItem(storageKey, JSON.stringify({ room: state.room, items: state.items, doors: state.doors, view: state.view }));
       state.status = "저장됨";
       render();
@@ -1299,9 +1378,7 @@
         state.room = parsed.room || state.room;
         state.items = Array.isArray(parsed.items) ? parsed.items.map(clampItem) : [];
         state.doors = Array.isArray(parsed.doors) ? parsed.doors.map(clampDoor) : [];
-        state.view = { x: 62, z: -38, panX: 0, panY: 0, zoom: 1, ...(parsed.view || {}) };
-        state.view.panX = Number.isFinite(Number(state.view.panX)) ? Number(state.view.panX) : 0;
-        state.view.panY = Number.isFinite(Number(state.view.panY)) ? Number(state.view.panY) : 0;
+        state.view = parsed.view || state.view;
         state.selectedId = state.items[0]?.id || null;
         state.selectedDoorId = null;
         $("roomWidth").value = state.room.width;
@@ -1309,6 +1386,10 @@
         $("roomHeight").value = state.room.height;
         state.status = "불러옴";
         setScaleToFit();
+        requestAnimationFrame(() => {
+          threeApp?.rebuild();
+          if (!threeApp?.restoreView(state.view)) threeApp?.resetView();
+        });
       } catch {
         state.status = "불러오기 실패";
         render();
@@ -1329,23 +1410,13 @@
     $("tab3d").addEventListener("click", () => { state.mode = "3d"; render(); });
 
     $("resetView").addEventListener("click", () => {
-      state.view = { x: 62, z: -38, panX: 0, panY: 0, zoom: 1 };
+      threeApp?.resetView();
       state.status = "보기 초기화";
       render();
     });
 
-    const viewPointers = new Map();
-    let viewGesture = null;
-    const viewer3d = $("viewer3d");
-
-    viewer3d.addEventListener("pointerdown", startViewGesture);
-    viewer3d.addEventListener("pointermove", moveViewGesture);
-    viewer3d.addEventListener("pointerup", endViewGesture);
-    viewer3d.addEventListener("pointercancel", endViewGesture);
-    $("viewer3d").addEventListener("contextmenu", (event) => event.preventDefault());
-    $("viewer3d").addEventListener("wheel", zoomView, { passive: false });
-    $("zoomOut").addEventListener("click", () => setViewZoom(state.view.zoom / 1.2));
-    $("zoomIn").addEventListener("click", () => setViewZoom(state.view.zoom * 1.2));
+    $("zoomOut").addEventListener("click", () => threeApp?.zoom(1 / 1.2));
+    $("zoomIn").addEventListener("click", () => threeApp?.zoom(1.2));
 
     function startDrag(event) {
       const id = event.currentTarget.dataset.id;
@@ -1439,124 +1510,9 @@
       window.addEventListener("pointercancel", end);
     }
 
-    function startViewGesture(event) {
-      if (state.mode !== "3d") return;
-      if (event.target.closest(".view-controls")) return;
-      event.preventDefault();
-      viewPointers.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType });
-      viewer3d.classList.add("dragging");
-      viewer3d.setPointerCapture(event.pointerId);
-      beginViewGesture(event);
-    }
-
-    function beginViewGesture(event = {}) {
-      const points = [...viewPointers.values()];
-      if (points.length >= 2) {
-        const [a, b] = points;
-        const centerX = (a.x + b.x) / 2;
-        const centerY = (a.y + b.y) / 2;
-        viewGesture = {
-          mode: "pinch",
-          centerX,
-          centerY,
-          distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
-          panX: state.view.panX,
-          panY: state.view.panY,
-          zoom: state.view.zoom
-        };
-        return;
-      }
-      if (points.length === 1) {
-        const point = points[0];
-        const mousePan = point.type === "mouse" && (event.button === 2 || event.button === 1 || event.shiftKey);
-        viewGesture = {
-          mode: mousePan ? "pan" : "rotate",
-          x: point.x,
-          y: point.y,
-          viewX: state.view.x,
-          viewZ: state.view.z,
-          panX: state.view.panX,
-          panY: state.view.panY
-        };
-      }
-    }
-
-    function moveViewGesture(event) {
-      if (!viewPointers.has(event.pointerId) || !viewGesture) return;
-      event.preventDefault();
-      viewPointers.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType });
-      const points = [...viewPointers.values()];
-      if (points.length >= 2 && viewGesture.mode === "pinch") {
-        const [a, b] = points;
-        const centerX = (a.x + b.x) / 2;
-        const centerY = (a.y + b.y) / 2;
-        const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
-        const nextZoom = Math.min(2.5, Math.max(0.35, viewGesture.zoom * distance / viewGesture.distance));
-        const ratio = nextZoom / viewGesture.zoom;
-        const rect = viewer3d.getBoundingClientRect();
-        const startX = viewGesture.centerX - rect.left - rect.width / 2;
-        const startY = viewGesture.centerY - rect.top - rect.height / 2;
-        const currentX = centerX - rect.left - rect.width / 2;
-        const currentY = centerY - rect.top - rect.height / 2;
-        state.view.panX = currentX - (startX - viewGesture.panX) * ratio;
-        state.view.panY = currentY - (startY - viewGesture.panY) * ratio;
-        state.view.zoom = nextZoom;
-        applyViewTransform();
-      } else if (points.length === 1) {
-        const point = points[0];
-        if (viewGesture.mode === "pan") {
-          state.view.panX = viewGesture.panX + point.x - viewGesture.x;
-          state.view.panY = viewGesture.panY + point.y - viewGesture.y;
-        } else if (viewGesture.mode === "rotate") {
-          state.view.z = viewGesture.viewZ + (point.x - viewGesture.x) * 0.35;
-          state.view.x = Math.min(82, Math.max(18, viewGesture.viewX - (point.y - viewGesture.y) * 0.25));
-        }
-        applyViewTransform();
-      }
-    }
-
-    function endViewGesture(event) {
-      if (!viewPointers.has(event.pointerId)) return;
-      viewPointers.delete(event.pointerId);
-      if (!viewPointers.size) {
-        viewGesture = null;
-        viewer3d.classList.remove("dragging");
-        return;
-      }
-      beginViewGesture({});
-    }
-
-    function zoomView(event) {
-      if (state.mode !== "3d" || event.target.closest(".view-controls")) return;
-      event.preventDefault();
-      const viewerRect = $("viewer3d").getBoundingClientRect();
-      const cursorX = event.clientX - viewerRect.left - viewerRect.width / 2;
-      const cursorY = event.clientY - viewerRect.top - viewerRect.height / 2;
-      const nextZoom = state.view.zoom * Math.exp(-event.deltaY * 0.0015);
-      setViewZoom(nextZoom, cursorX, cursorY);
-    }
-
-    function setViewZoom(nextZoom, anchorX = 0, anchorY = 0) {
-      const previousZoom = state.view.zoom;
-      nextZoom = Math.min(2.5, Math.max(0.35, nextZoom));
-      const ratio = nextZoom / previousZoom;
-      state.view.panX = anchorX - (anchorX - state.view.panX) * ratio;
-      state.view.panY = anchorY - (anchorY - state.view.panY) * ratio;
-      state.view.zoom = nextZoom;
-      applyViewTransform();
-    }
-
-    function applyViewTransform() {
-      document.documentElement.style.setProperty("--view-pan-x", `${state.view.panX}px`);
-      document.documentElement.style.setProperty("--view-pan-y", `${state.view.panY}px`);
-      document.documentElement.style.setProperty("--view-zoom", state.view.zoom);
-      document.documentElement.style.setProperty("--view-x", `${state.view.x}deg`);
-      document.documentElement.style.setProperty("--view-z", `${state.view.z}deg`);
-      $("zoomValue").textContent = `${Math.round(state.view.zoom * 100)}%`;
-    }
-
     window.addEventListener("resize", setScaleToFit);
     setScaleToFit();
+    loadThree();
   </script>
 </body>
 </html>
